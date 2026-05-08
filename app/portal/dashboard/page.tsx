@@ -5,14 +5,26 @@ import { useRouter } from "next/navigation"
 import {
   Activity, Droplets, Scale, Camera, ShoppingCart, FileText,
   Plus, Minus, Check, Bell, TrendingDown, LogOut, ChevronDown, ChevronUp,
-  MessageCircle, Send,
+  MessageCircle, Send, Trophy,
 } from "lucide-react"
+import Link from "next/link"
+import type { EylemTuru } from "@/lib/loyalty-definitions"
 import { demoDanisanlar, demoDiyetPlanlari, demoOlcumler } from "@/lib/demo-data"
 import type { Danisan } from "@/lib/types"
 import { formatTarih } from "@/lib/utils-crm"
 import { gonderimEkle, getGonderimler, yorumuOkunduIsaretle, type PortalGonderim } from "@/lib/portal-storage"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
+
+async function loyaltyEylem(danisanId: string, tip: EylemTuru) {
+  try {
+    await fetch("/api/loyalty", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ danisanId, tip }),
+    })
+  } catch { /* loyalty hatası ana akışı engellemesin */ }
+}
 
 const alisverisListesi = [
   { kategori: 'Sebze & Meyve', urunler: ['Ispanak (500g)', 'Brokoli (2 baş)', 'Havuç (1kg)', 'Salatalık (4 adet)', 'Domates (1kg)', 'Elma (1kg)', 'Muz (1 adet/gün)', 'Limon (4 adet)'] },
@@ -113,6 +125,7 @@ export default function PortalDashboardPage() {
       tur: 'kilo',
       deger: `${kilo} kg`,
     })
+    loyaltyEylem(danisan.id, 'kilo_giris')
     setKiloKaydedildi(true)
     setTimeout(() => { setKiloKaydedildi(false); setKilo('') }, 2500)
   }
@@ -254,6 +267,7 @@ export default function PortalDashboardPage() {
                   onClick={() => {
                     const yeni = Math.min(suHedefi, suMiktari + 1)
                     setSuMiktari(yeni)
+                    if (danisan) loyaltyEylem(danisan.id, 'su_takibi')
                     if (yeni === suHedefi && danisan) {
                       gonderimEkle({ danisanId: danisan.id, tur: 'su', deger: `${yeni}/${suHedefi} bardak tamamlandı` })
                       setSuKutlamasi(true)
@@ -350,6 +364,18 @@ export default function PortalDashboardPage() {
                 </div>
               </div>
             ))}
+
+            {/* Sadakat Programı */}
+            <Link
+              href="/portal/loyalty"
+              className="bg-gradient-to-r from-amber-400 to-orange-500 rounded-2xl p-5 shadow-xs flex items-center justify-between"
+            >
+              <div>
+                <p className="font-bold text-white text-sm">🏆 Sadakat Puanlarım</p>
+                <p className="text-white/80 text-xs mt-0.5">Rozetler, görevler ve ödüller</p>
+              </div>
+              <Trophy className="h-8 w-8 text-white/60" />
+            </Link>
 
             {/* Bildirim */}
             {!bildirimIzni && (
@@ -579,6 +605,7 @@ function FotografKarti({ danisan }: { danisan: Danisan }) {
       fotografData: sikistirilmis,
       ogun: seciliOgun,
     })
+    loyaltyEylem(danisan.id, 'ogun_log')
     setGonderiyor(false)
     setGonderildi(true)
   }

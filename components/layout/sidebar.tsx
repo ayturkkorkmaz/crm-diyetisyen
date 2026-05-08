@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation"
 import {
   Activity, LayoutDashboard, Users, CalendarDays,
   Salad, Ruler, CreditCard, Settings, LogOut,
-  MessageCircle, Smartphone, CheckSquare,
+  MessageCircle, Smartphone, CheckSquare, Trophy,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
@@ -21,6 +21,7 @@ const navItems = [
   { href: "/whatsapp", icon: MessageCircle, label: "WhatsApp Bot" },
   { href: "/portal", icon: Smartphone, label: "Danışan Portali" },
   { href: "/gorevler", icon: CheckSquare, label: "Görevler" },
+  { href: "/loyalty",  icon: Trophy,      label: "Sadakat"  },
 ]
 
 export function Sidebar() {
