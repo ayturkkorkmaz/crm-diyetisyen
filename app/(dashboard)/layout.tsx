@@ -1,5 +1,4 @@
 import { Sidebar } from "@/components/layout/sidebar"
-import { WhatsappNotificationPoller } from "@/components/whatsapp-notification-poller"
 import { AlarmBell } from "@/components/alarm-bell"
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -14,7 +13,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {children}
         </main>
       </div>
-      <WhatsappNotificationPoller />
     </div>
   )
 }

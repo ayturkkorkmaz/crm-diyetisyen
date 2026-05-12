@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 import { sendWhatsAppMessage } from '@/lib/whatsapp-singleton'
 
+/**
+ * GÜVENLİ mesaj gönderme endpoint'i.
+ * sendWhatsAppMessage içindeki güvenlik katmanı sayesinde
+ * yalnızca CRM'de kayıtlı danışanlara mesaj gönderilebilir.
+ */
 export async function POST(request: Request) {
   const { to, message } = await request.json() as { to: string; message: string }
 

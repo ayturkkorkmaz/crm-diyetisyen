@@ -34,11 +34,24 @@ export interface Olcum {
   bmi?: number
   yag_orani?: number
   kas_orani?: number
+  sivi_orani?: number
+  ic_yaglanma?: number
   bel_cm?: number
   kalca_cm?: number
   gogus_cm?: number
   kol_cm?: number
   bacak_cm?: number
+  // Segmental analiz (Tanita / akıllı terazi)
+  sol_kol_kas_kg?: number
+  sol_kol_yag_kg?: number
+  sag_kol_kas_kg?: number
+  sag_kol_yag_kg?: number
+  govde_kas_kg?: number
+  govde_yag_kg?: number
+  sol_bacak_kas_kg?: number
+  sol_bacak_yag_kg?: number
+  sag_bacak_kas_kg?: number
+  sag_bacak_yag_kg?: number
   notlar?: string
 }
 

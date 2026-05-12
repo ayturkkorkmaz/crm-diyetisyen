@@ -10,10 +10,9 @@ const DATA_DIR = path.join(process.cwd(), ".data")
 const LOG_FILE = path.join(DATA_DIR, "followup-log.json")
 
 export type FollowupTip =
-  | "randevu_sonrasi"
-  | "hareketsiz_danisan"
-  | "olcum_hatirlatma"
-  | "randevu_yok"
+  | "randevu_hatirlatma"
+  | "su_hatirlatma"
+  | "odeme_gecikti"
 
 interface FollowupKayit {
   danisanId: string

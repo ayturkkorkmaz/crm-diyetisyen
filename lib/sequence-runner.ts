@@ -1,32 +1,19 @@
 /**
  * Sequence cron worker.
  * Her gün 08:30'da çalışır, bekleyen adımları işler.
+ * WhatsApp gönderimi KALDIRILDI — sadece görev ve alarm oluşturur.
  */
 
-import { getDanisanlar, getRandevular, getOlcumler } from "./server-store"
-import { getWaGonderimler } from "./server-portal-store"
-import { sendWhatsAppMessage } from "./whatsapp-singleton"
+import { getDanisanlar, getOlcumler } from "./server-store"
 import {
   getSequences,
   saveSequences,
   gorevEkle,
   alarmEkle,
-  type ActiveSequence,
   type AdimDurum,
 } from "./sequence-store"
-import { SEQUENCE_TANIMLARI, SABLONLAR, type AdimTanim } from "./sequence-definitions"
+import { SEQUENCE_TANIMLARI, type AdimTanim } from "./sequence-definitions"
 import type { Danisan } from "./types"
-
-function bugunStr() {
-  return new Date().toISOString().slice(0, 10)
-}
-
-function mesajDoldur(sablon: string, danisan: Danisan): string {
-  return sablon
-    .replace(/{{ad}}/g, danisan.ad)
-    .replace(/{{soyad}}/g, danisan.soyad)
-    .replace(/{{diyetisyen}}/g, "Diyetisyen")
-}
 
 function metiDoldur(metin: string, danisan: Danisan): string {
   return metin
@@ -52,7 +39,6 @@ async function kosulKontrol(
   }
 
   if (anahtar === "odeme_hala_yok") {
-    // Şimdilik her zaman true — ödeme kontrolü eklenince buraya yaz
     return true
   }
 
@@ -85,7 +71,6 @@ export async function sequenceAdimlariniCalistir() {
 
       const { aksiyon } = adimTanim
 
-      // Koşul kontrolü
       const kosulSaglandi = await kosulKontrol(aksiyon.kosulAnahtar, danisan)
       if (!kosulSaglandi) {
         adim.durum = "iptal" as AdimDurum
@@ -93,22 +78,6 @@ export async function sequenceAdimlariniCalistir() {
         degisti = true
         console.log(`[Sequence] Adım iptal edildi (koşul sağlanmadı): ${danisan.ad} ${danisan.soyad} — ${seq.tetikleyici}[${adim.adimNo}]`)
         continue
-      }
-
-      // WhatsApp gönder
-      if (aksiyon.whatsapp && danisan.telefon) {
-        const sablon = SABLONLAR[aksiyon.whatsapp.sablon as keyof typeof SABLONLAR]
-        if (sablon) {
-          const mesaj = mesajDoldur(sablon, danisan)
-          try {
-            await sendWhatsAppMessage(danisan.telefon, mesaj)
-            console.log(`[Sequence] WA gönderildi: ${danisan.ad} ${danisan.soyad} — ${seq.tetikleyici}[${adim.adimNo}]`)
-          } catch (err) {
-            console.error(`[Sequence] WA hata: ${danisan.ad} ${danisan.soyad}:`, err)
-          }
-          // 2s spam önlemi
-          await new Promise(r => setTimeout(r, 2000))
-        }
       }
 
       // Görev oluştur
@@ -167,7 +136,6 @@ export async function aktiviteDususTara() {
     const aktiviteDusuk = !son || son.tarih < esikStr
     if (!aktiviteDusuk) continue
 
-    // Sequence'ı başlat (mükerrer önleme sequenceEkle içinde)
     const adimTanimlar = SEQUENCE_TANIMLARI["aktivite_dusuk"]
     const baslangic = new Date()
     const adimlar = adimTanimlar.map((t, i) => {
@@ -197,7 +165,7 @@ export async function paketBitiyorTara() {
     const bitis = new Date(bitisStr + "T00:00:00")
     const farkGun = Math.ceil((bitis.getTime() - simdi.getTime()) / (1000 * 60 * 60 * 24))
 
-    if (farkGun !== 3) continue  // tam 3 gün kaldığında başlat
+    if (farkGun !== 3) continue
 
     const adimTanimlar = SEQUENCE_TANIMLARI["paket_bitiyor"]
     const baslangic = new Date()

@@ -35,6 +35,36 @@ function syncServer(patch: Partial<State>) {
   }).catch(() => { })
 }
 
+// Eski demo verilerini localStorage'dan bir kerelik temizle
+const DEMO_IDS = new Set(['d1','d2','d3','d4','d5','d6','d7','d8'])
+function temizleDemoVerisi() {
+  if (typeof window === "undefined") return
+  const MIGRATION_KEY = 'crm_demo_temizlendi_v1'
+  if (localStorage.getItem(MIGRATION_KEY)) return
+
+  const danisanlar = loadLS<Danisan[]>('crm_danisanlar', [])
+  const temizDanisanlar = danisanlar.filter(d => !DEMO_IDS.has(d.id))
+
+  const randevular = loadLS<Randevu[]>('crm_randevular', [])
+  const temizRandevular = randevular.filter(r => !DEMO_IDS.has(r.danisan_id))
+
+  const diyetPlanlari = loadLS<DiyetPlani[]>('crm_diyet_planlari', [])
+  const temizDiyet = diyetPlanlari.filter(p => !DEMO_IDS.has(p.danisan_id))
+
+  const olcumler = loadLS<Olcum[]>('crm_olcumler', [])
+  const temizOlcumler = olcumler.filter(o => !DEMO_IDS.has(o.danisan_id))
+
+  const odemeler = loadLS<Odeme[]>('crm_odemeler', [])
+  const temizOdemeler = odemeler.filter(o => !DEMO_IDS.has(o.danisan_id))
+
+  saveLS('crm_danisanlar', temizDanisanlar)
+  saveLS('crm_randevular', temizRandevular)
+  saveLS('crm_diyet_planlari', temizDiyet)
+  saveLS('crm_olcumler', temizOlcumler)
+  saveLS('crm_odemeler', temizOdemeler)
+  localStorage.setItem(MIGRATION_KEY, '1')
+}
+
 let state: State = {
   danisanlar: demoDanisanlar,
   randevular: demoRandevular,
@@ -53,6 +83,8 @@ function notify(next: State) {
 function hydrate() {
   if (initialized) return
   initialized = true
+
+  temizleDemoVerisi()
 
   const danisanlar = loadLS("crm_danisanlar", demoDanisanlar)
   const hamRandevular = loadLS("crm_randevular", demoRandevular)
@@ -115,6 +147,20 @@ export const crmStore = {
     notify({ ...state, odemeler })
   },
 
+  updateOdemeDurum(id: string, durum: Odeme["durum"]) {
+    const odemeler = state.odemeler.map(o => o.id === id ? { ...o, durum } : o)
+    saveLS("crm_odemeler", odemeler)
+    syncServer({ odemeler })
+    notify({ ...state, odemeler })
+  },
+
+  deleteOdeme(id: string) {
+    const odemeler = state.odemeler.filter(o => o.id !== id)
+    saveLS("crm_odemeler", odemeler)
+    syncServer({ odemeler })
+    notify({ ...state, odemeler })
+  },
+
   // ── Ölçüm ─────────────────────────────────────────────────────────────────
   addOlcum(o: Olcum) {
     const olcumler = [...state.olcumler, o]
@@ -133,6 +179,13 @@ export const crmStore = {
 
   updateRandevuDurum(id: string, durum: Randevu["durum"]) {
     const randevular = state.randevular.map(r => r.id === id ? { ...r, durum } : r)
+    saveLS("crm_randevular", randevular)
+    syncServer({ randevular })
+    notify({ ...state, randevular })
+  },
+
+  updateRandevuZaman(id: string, tarih: string, saat: string) {
+    const randevular = state.randevular.map(r => r.id === id ? { ...r, tarih, saat } : r)
     saveLS("crm_randevular", randevular)
     syncServer({ randevular })
     notify({ ...state, randevular })

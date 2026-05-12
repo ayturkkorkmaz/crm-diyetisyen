@@ -1,10 +1,5 @@
 import { NextResponse } from "next/server"
-import {
-  randevuSonrasiFollowup,
-  olcumHatirlatmaFollowup,
-  hareketsizDanisanFollowup,
-  randevuYokFollowup,
-} from "@/lib/automation-engine"
+import { randevuHatirlatma, suHatirlatma, odemGeciktiUyari } from "@/lib/automation-engine"
 import { getFollowupLog } from "@/lib/followup-store"
 
 export async function GET() {
@@ -18,20 +13,20 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json() as { tip: string }
+    const body = await request.json() as { tip: string; danisanId?: string }
 
     switch (body.tip) {
-      case "randevu_sonrasi":
-        await randevuSonrasiFollowup()
+      case "randevu_hatirlatma":
+        await randevuHatirlatma()
         break
-      case "olcum_hatirlatma":
-        await olcumHatirlatmaFollowup()
+      case "su_hatirlatma":
+        await suHatirlatma()
         break
-      case "hareketsiz_danisan":
-        await hareketsizDanisanFollowup()
-        break
-      case "randevu_yok":
-        await randevuYokFollowup()
+      case "odeme_gecikti":
+        if (!body.danisanId) {
+          return NextResponse.json({ ok: false, hata: "danisanId zorunlu" }, { status: 400 })
+        }
+        await odemGeciktiUyari(body.danisanId)
         break
       default:
         return NextResponse.json({ ok: false, hata: "Geçersiz tip" }, { status: 400 })
@@ -39,7 +34,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true })
   } catch (err) {
-    console.error("[Follow-up] Hata:", err)
+    console.error("[Otomasyon] Hata:", err)
     return NextResponse.json({ ok: false, hata: String(err) }, { status: 500 })
   }
 }

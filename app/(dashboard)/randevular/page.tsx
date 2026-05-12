@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { Header } from "@/components/layout/header"
 import { Button } from "@/components/ui/button"
@@ -26,47 +26,44 @@ type Gorünüm = "gun" | "hafta" | "ay"
 const SAAT_BASLANGIC = 8
 const SAAT_BITIS = 20
 const PX_PER_HOUR = 64
+// 30 dakikalık slot listesi
+const SLOTS = Array.from({ length: (SAAT_BITIS - SAAT_BASLANGIC) * 2 }, (_, i) => {
+  const h = SAAT_BASLANGIC + Math.floor(i / 2)
+  const m = (i % 2) * 30
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`
+})
 
 const TURKCE_GUNLER = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"]
 const TURKCE_AYLAR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
 const KISA_GUNLER = ["Paz", "Pzt", "Sal", "Çar", "Per", "Cum", "Cmt"]
 
-function tarihStr(d: Date): string {
-  return d.toISOString().slice(0, 10)
-}
+function tarihStr(d: Date): string { return d.toISOString().slice(0, 10) }
 
 function haftaBaslangic(d: Date): Date {
   const day = d.getDay()
-  // Pazartesi başlangıç
-  const diff = (day === 0 ? -6 : 1 - day)
-  const m = new Date(d)
-  m.setDate(m.getDate() + diff)
-  return m
+  const diff = day === 0 ? -6 : 1 - day
+  const m = new Date(d); m.setDate(m.getDate() + diff); return m
 }
 
 function ayGunleri(yil: number, ay: number): (Date | null)[] {
   const ilk = new Date(yil, ay, 1)
   const son = new Date(yil, ay + 1, 0)
-  // Haftayı Pazartesi'den başlat (0=Pzt)
   const baslangicGun = (ilk.getDay() + 6) % 7
   const gunler: (Date | null)[] = Array(baslangicGun).fill(null)
-  for (let g = 1; g <= son.getDate(); g++) {
-    gunler.push(new Date(yil, ay, g))
-  }
+  for (let g = 1; g <= son.getDate(); g++) gunler.push(new Date(yil, ay, g))
   while (gunler.length % 7 !== 0) gunler.push(null)
   return gunler
 }
 
 function saatToMinutes(saat: string): number {
-  const [h, m] = saat.split(":").map(Number)
-  return h * 60 + m
+  const [h, m] = saat.split(":").map(Number); return h * 60 + m
 }
 
 const RDV_RENKLERI: Record<string, string> = {
-  planlandi: "bg-blue-100 text-blue-800 border-blue-200",
+  planlandi:  "bg-blue-100 text-blue-800 border-blue-200",
   tamamlandi: "bg-emerald-100 text-emerald-800 border-emerald-200",
-  iptal: "bg-red-100 text-red-800 border-red-200",
-  gelmedi: "bg-orange-100 text-orange-800 border-orange-200",
+  iptal:      "bg-red-100 text-red-800 border-red-200",
+  gelmedi:    "bg-orange-100 text-orange-800 border-orange-200",
 }
 
 export default function RandevularPage() {
@@ -77,7 +74,10 @@ export default function RandevularPage() {
   const [secili, setSecili] = useState(() => new Date())
   const [addOpen, setAddOpen] = useState(false)
 
-  // Randevu ekleme formu
+  // Sürükle-bırak durumu
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [dropTarget, setDropTarget] = useState<string | null>(null) // "tarih__saat"
+
   const [form, setForm] = useState({
     danisan_id: "", tarih: tarihStr(bugun),
     saat: "09:00", sure_dk: "60",
@@ -121,15 +121,41 @@ export default function RandevularPage() {
     setForm({ danisan_id: "", tarih: tarihStr(bugun), saat: "09:00", sure_dk: "60", tur: "Takip", ucret: "", notlar: "" })
   }
 
+  // ── Sürükle-bırak yardımcıları ───────────────────────────────────────────
+  function onDragStart(e: React.DragEvent, id: string) {
+    setDraggingId(id)
+    e.dataTransfer.effectAllowed = "move"
+    e.dataTransfer.setData("rdvId", id)
+  }
+
+  function onDragEnd() {
+    setDraggingId(null)
+    setDropTarget(null)
+  }
+
+  function onSlotDragOver(e: React.DragEvent, key: string) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = "move"
+    setDropTarget(key)
+  }
+
+  function onSlotDrop(e: React.DragEvent, tarih: string, saat: string) {
+    e.preventDefault()
+    const id = e.dataTransfer.getData("rdvId") || draggingId
+    if (id) crmStore.updateRandevuZaman(id, tarih, saat)
+    setDraggingId(null)
+    setDropTarget(null)
+  }
+
+  function slotKey(tarih: string, saat: string) { return `${tarih}__${saat}` }
+
   // ── Günlük Görünüm ───────────────────────────────────────────────────────
   const GunGorunum = () => {
-    const gunRdv = randevular
-      .filter(r => r.tarih === tarihStr(secili))
-      .sort((a, b) => a.saat.localeCompare(b.saat))
+    const tarih = tarihStr(secili)
+    const gunRdv = randevular.filter(r => r.tarih === tarih).sort((a, b) => a.saat.localeCompare(b.saat))
 
     return (
       <div className="flex gap-0">
-        {/* Saat sütunu */}
         <div className="w-14 shrink-0 border-r border-border">
           {Array.from({ length: SAAT_BITIS - SAAT_BASLANGIC }).map((_, i) => (
             <div key={i} style={{ height: PX_PER_HOUR }} className="border-b border-border/50 flex items-start pt-1">
@@ -137,19 +163,38 @@ export default function RandevularPage() {
             </div>
           ))}
         </div>
-        {/* Randevular */}
         <div className="flex-1 relative" style={{ height: (SAAT_BITIS - SAAT_BASLANGIC) * PX_PER_HOUR }}>
-          {Array.from({ length: SAAT_BITIS - SAAT_BASLANGIC }).map((_, i) => (
-            <div key={i} style={{ top: i * PX_PER_HOUR, height: PX_PER_HOUR }} className="absolute inset-x-0 border-b border-border/30" />
-          ))}
+          {/* Drop slot'ları */}
+          {SLOTS.map((slot, i) => {
+            const key = slotKey(tarih, slot)
+            const isTarget = dropTarget === key && draggingId !== null
+            return (
+              <div
+                key={slot}
+                style={{ top: i * (PX_PER_HOUR / 2), height: PX_PER_HOUR / 2 }}
+                className={`absolute inset-x-0 z-0 border-b transition-colors ${
+                  i % 2 === 0 ? "border-border/30" : "border-dashed border-border/15"
+                } ${isTarget ? "bg-primary/10 border-primary/40" : ""}`}
+                onDragOver={e => onSlotDragOver(e, key)}
+                onDragLeave={() => setDropTarget(null)}
+                onDrop={e => onSlotDrop(e, tarih, slot)}
+              />
+            )
+          })}
+
+          {/* Randevu kartları */}
           {gunRdv.map(r => {
             const mins = saatToMinutes(r.saat) - SAAT_BASLANGIC * 60
             const top = (mins / 60) * PX_PER_HOUR
             const height = Math.max(30, (r.sure_dk / 60) * PX_PER_HOUR - 2)
+            const isDragging = draggingId === r.id
             return (
               <div
                 key={r.id}
-                className={`absolute left-2 right-2 rounded-lg border px-2 py-1 text-xs cursor-pointer hover:shadow-md transition-shadow ${RDV_RENKLERI[r.durum]}`}
+                draggable
+                onDragStart={e => onDragStart(e, r.id)}
+                onDragEnd={onDragEnd}
+                className={`absolute left-2 right-2 rounded-lg border px-2 py-1 text-xs cursor-grab active:cursor-grabbing hover:shadow-md transition-all z-10 select-none ${RDV_RENKLERI[r.durum]} ${isDragging ? "opacity-40 scale-95" : ""}`}
                 style={{ top, height }}
               >
                 <p className="font-semibold truncate">{r.danisan?.ad} {r.danisan?.soyad}</p>
@@ -157,8 +202,8 @@ export default function RandevularPage() {
               </div>
             )
           })}
-          {gunRdv.length === 0 && (
-            <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">
+          {gunRdv.length === 0 && !draggingId && (
+            <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm pointer-events-none">
               Bu gün için randevu yok
             </div>
           )}
@@ -188,7 +233,7 @@ export default function RandevularPage() {
                   className="flex-1 text-center py-2 cursor-pointer hover:bg-muted/50 transition-colors"
                   onClick={() => { setSecili(g); setGorunum("gun") }}
                 >
-                  <p className="text-xs text-muted-foreground">{KISA_GUNLER[(g.getDay())]}</p>
+                  <p className="text-xs text-muted-foreground">{KISA_GUNLER[g.getDay()]}</p>
                   <p className={`text-sm font-semibold mt-0.5 w-7 h-7 rounded-full flex items-center justify-center mx-auto ${bugunMu ? "bg-primary text-primary-foreground" : ""}`}>
                     {g.getDate()}
                   </p>
@@ -196,6 +241,7 @@ export default function RandevularPage() {
               )
             })}
           </div>
+
           {/* Saat ızgarası */}
           <div className="flex">
             <div className="w-14 shrink-0 border-r border-border">
@@ -205,6 +251,7 @@ export default function RandevularPage() {
                 </div>
               ))}
             </div>
+
             {gunler.map(g => {
               const str = tarihStr(g)
               const gunRdv = randevular.filter(r => r.tarih === str)
@@ -214,17 +261,37 @@ export default function RandevularPage() {
                   className="flex-1 relative border-r border-border/30"
                   style={{ height: (SAAT_BITIS - SAAT_BASLANGIC) * PX_PER_HOUR }}
                 >
-                  {Array.from({ length: SAAT_BITIS - SAAT_BASLANGIC }).map((_, i) => (
-                    <div key={i} style={{ top: i * PX_PER_HOUR, height: PX_PER_HOUR }} className="absolute inset-x-0 border-b border-border/20" />
-                  ))}
+                  {/* Drop slot'ları */}
+                  {SLOTS.map((slot, i) => {
+                    const key = slotKey(str, slot)
+                    const isTarget = dropTarget === key && draggingId !== null
+                    return (
+                      <div
+                        key={slot}
+                        style={{ top: i * (PX_PER_HOUR / 2), height: PX_PER_HOUR / 2 }}
+                        className={`absolute inset-x-0 z-0 border-b transition-colors ${
+                          i % 2 === 0 ? "border-border/20" : "border-dashed border-border/10"
+                        } ${isTarget ? "bg-primary/10" : ""}`}
+                        onDragOver={e => onSlotDragOver(e, key)}
+                        onDragLeave={() => setDropTarget(null)}
+                        onDrop={e => onSlotDrop(e, str, slot)}
+                      />
+                    )
+                  })}
+
+                  {/* Randevu kartları */}
                   {gunRdv.map(r => {
                     const mins = saatToMinutes(r.saat) - SAAT_BASLANGIC * 60
                     const top = (mins / 60) * PX_PER_HOUR
                     const height = Math.max(24, (r.sure_dk / 60) * PX_PER_HOUR - 2)
+                    const isDragging = draggingId === r.id
                     return (
                       <div
                         key={r.id}
-                        className={`absolute left-0.5 right-0.5 rounded border px-1 py-0.5 text-xs cursor-pointer hover:shadow-md transition-shadow ${RDV_RENKLERI[r.durum]}`}
+                        draggable
+                        onDragStart={e => onDragStart(e, r.id)}
+                        onDragEnd={onDragEnd}
+                        className={`absolute left-0.5 right-0.5 rounded border px-1 py-0.5 text-xs cursor-grab active:cursor-grabbing hover:shadow-md transition-all z-10 select-none ${RDV_RENKLERI[r.durum]} ${isDragging ? "opacity-40 scale-95" : ""}`}
                         style={{ top, height }}
                       >
                         <p className="font-semibold truncate leading-tight">{r.danisan?.ad} {r.danisan?.soyad?.charAt(0)}.</p>
@@ -248,39 +315,67 @@ export default function RandevularPage() {
 
     return (
       <div>
-        {/* Haftanın günleri başlığı */}
         <div className="grid grid-cols-7 border-b border-border">
           {["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"].map(g => (
             <div key={g} className="text-center text-xs font-medium text-muted-foreground py-2">{g}</div>
           ))}
         </div>
-        {/* Günler */}
         <div className="grid grid-cols-7" style={{ gridTemplateRows: `repeat(${haftaSayisi}, minmax(80px, 1fr))` }}>
           {gunler.map((gun, idx) => {
-            if (!gun) return <div key={idx} className="border-b border-r border-border/30 bg-muted/20" />
+            if (!gun) return (
+              <div
+                key={idx}
+                className="border-b border-r border-border/30 bg-muted/20"
+                onDragOver={e => e.preventDefault()}
+              />
+            )
             const str = tarihStr(gun)
             const gunRdv = randevular.filter(r => r.tarih === str)
             const bugunMu = str === tarihStr(bugun)
             const ayCdisi = gun.getMonth() !== secili.getMonth()
+            const isTarget = dropTarget === str && draggingId !== null
 
             return (
               <div
                 key={str}
-                className={`border-b border-r border-border/30 p-1 cursor-pointer hover:bg-muted/30 transition-colors min-h-[80px] ${ayCdisi ? "bg-muted/20" : ""}`}
-                onClick={() => { setSecili(gun); setGorunum("gun") }}
+                className={`border-b border-r border-border/30 p-1 min-h-[80px] transition-colors ${
+                  ayCdisi ? "bg-muted/20" : ""
+                } ${isTarget ? "bg-primary/8 ring-1 ring-inset ring-primary/30" : "hover:bg-muted/30"}`}
+                onClick={() => !draggingId && (setSecili(gun), setGorunum("gun"))}
+                onDragOver={e => { e.preventDefault(); setDropTarget(str) }}
+                onDragLeave={() => setDropTarget(null)}
+                onDrop={e => {
+                  e.preventDefault()
+                  const id = e.dataTransfer.getData("rdvId") || draggingId
+                  if (id) {
+                    const rdv = randevular.find(r => r.id === id)
+                    if (rdv) crmStore.updateRandevuZaman(id, str, rdv.saat)
+                  }
+                  setDraggingId(null)
+                  setDropTarget(null)
+                }}
               >
-                <p className={`text-xs font-medium w-6 h-6 rounded-full flex items-center justify-center mb-1 ${bugunMu ? "bg-primary text-primary-foreground" : ayCdisi ? "text-muted-foreground/50" : "text-foreground"}`}>
+                <p className={`text-xs font-medium w-6 h-6 rounded-full flex items-center justify-center mb-1 ${
+                  bugunMu ? "bg-primary text-primary-foreground" : ayCdisi ? "text-muted-foreground/50" : "text-foreground"
+                }`}>
                   {gun.getDate()}
                 </p>
                 <div className="space-y-0.5">
-                  {gunRdv.slice(0, 3).map(r => (
-                    <div
-                      key={r.id}
-                      className={`text-xs rounded px-1 truncate ${RDV_RENKLERI[r.durum]}`}
-                    >
-                      {r.saat} {r.danisan?.ad}
-                    </div>
-                  ))}
+                  {gunRdv.slice(0, 3).map(r => {
+                    const isDragging = draggingId === r.id
+                    return (
+                      <div
+                        key={r.id}
+                        draggable
+                        onDragStart={e => { e.stopPropagation(); onDragStart(e, r.id) }}
+                        onDragEnd={onDragEnd}
+                        className={`text-xs rounded px-1 truncate cursor-grab active:cursor-grabbing select-none ${RDV_RENKLERI[r.durum]} ${isDragging ? "opacity-40" : ""}`}
+                        onClick={e => e.stopPropagation()}
+                      >
+                        {r.saat} {r.danisan?.ad}
+                      </div>
+                    )
+                  })}
                   {gunRdv.length > 3 && (
                     <p className="text-xs text-muted-foreground pl-1">+{gunRdv.length - 3} daha</p>
                   )}
@@ -384,20 +479,20 @@ export default function RandevularPage() {
           </CardContent></Card>
         </div>
 
+        {/* Sürükle-bırak ipucu */}
+        {draggingId && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-primary text-primary-foreground text-xs font-medium px-4 py-2 rounded-full shadow-lg pointer-events-none">
+            Randevuyu yeni saate / güne bırak
+          </div>
+        )}
+
         {/* Takvim */}
         <Card className="overflow-hidden">
-          {/* Kontrol Çubuğu */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => git(-1)}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setSecili(new Date(bugun))}>
-                Bugün
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => git(1)}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+              <Button variant="outline" size="sm" onClick={() => git(-1)}><ChevronLeft className="h-4 w-4" /></Button>
+              <Button variant="outline" size="sm" onClick={() => setSecili(new Date(bugun))}>Bugün</Button>
+              <Button variant="outline" size="sm" onClick={() => git(1)}><ChevronRight className="h-4 w-4" /></Button>
               <span className="font-semibold text-sm ml-2">{baslik()}</span>
             </div>
             <div className="flex items-center border border-border rounded-lg overflow-hidden">
@@ -413,7 +508,6 @@ export default function RandevularPage() {
             </div>
           </div>
 
-          {/* Görünüm İçeriği */}
           <div className={gorunum !== "ay" ? "overflow-y-auto max-h-[580px]" : ""}>
             {gorunum === "gun" && <GunGorunum />}
             {gorunum === "hafta" && <HaftaGorunum />}
@@ -453,15 +547,9 @@ export default function RandevularPage() {
                           <Button variant="ghost" size="icon-sm"><MoreHorizontal className="h-4 w-4" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => crmStore.updateRandevuDurum(r.id, "tamamlandi")}>
-                            Tamamlandı İşaretle
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => crmStore.updateRandevuDurum(r.id, "iptal")}>
-                            İptal Et
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => crmStore.updateRandevuDurum(r.id, "gelmedi")}>
-                            Gelmedi İşaretle
-                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => crmStore.updateRandevuDurum(r.id, "tamamlandi")}>Tamamlandı İşaretle</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => crmStore.updateRandevuDurum(r.id, "iptal")}>İptal Et</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => crmStore.updateRandevuDurum(r.id, "gelmedi")}>Gelmedi İşaretle</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </CardContent>

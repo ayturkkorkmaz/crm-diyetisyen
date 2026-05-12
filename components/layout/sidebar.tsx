@@ -4,8 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   Activity, LayoutDashboard, Users, CalendarDays,
-  Salad, Ruler, CreditCard, Settings, LogOut,
-  MessageCircle, Smartphone, CheckSquare, Trophy,
+  CreditCard, Settings, LogOut, Trophy, UserPlus, DollarSign,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
@@ -14,14 +13,11 @@ import { useRouter } from "next/navigation"
 const navItems = [
   { href: "/", icon: LayoutDashboard, label: "Genel Bakış" },
   { href: "/danisanlar", icon: Users, label: "Danışanlar" },
+  { href: "/potansiyel-musteriler", icon: UserPlus, label: "Potansiyel Müşteriler" },
   { href: "/randevular", icon: CalendarDays, label: "Takvim" },
-  { href: "/diyet-planlari", icon: Salad, label: "Diyet Planları" },
-  { href: "/olcumler", icon: Ruler, label: "Ölçümler" },
   { href: "/odemeler", icon: CreditCard, label: "Ödemeler" },
-  { href: "/whatsapp", icon: MessageCircle, label: "WhatsApp Bot" },
-  { href: "/portal", icon: Smartphone, label: "Danışan Portali" },
-  { href: "/gorevler", icon: CheckSquare, label: "Görevler" },
-  { href: "/loyalty",  icon: Trophy,      label: "Sadakat"  },
+  { href: "/fiyatlandirma", icon: DollarSign, label: "Fiyatlandırma" },
+  { href: "/loyalty", icon: Trophy, label: "Sadakat" },
 ]
 
 export function Sidebar() {
