@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Header } from "@/components/layout/header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -58,46 +58,25 @@ const DURUM_VARIANT: Record<LeadDurumu, "default" | "secondary" | "success" | "w
 
 const KAYNAK_SECENEKLER = ["Telefon", "WhatsApp", "Instagram", "Tavsiye", "Web Sitesi", "Diğer"]
 
-const BASLANGIC_LEADLER: Lead[] = [
-  {
-    id: "l1",
-    ad: "Selin",
-    soyad: "Koç",
-    telefon: "+90 532 111 2233",
-    email: "selin@gmail.com",
-    kaynak: "Instagram",
-    notlar: "Kilo vermek istiyor, 15 kg hedefi var. Fiyat sordu.",
-    durum: "takipte",
-    olusturma_tarihi: "2026-05-01",
-    son_temas: "2026-05-08",
-    sonraki_temas: "2026-05-15",
-    followup_sayisi: 2,
-  },
-  {
-    id: "l2",
-    ad: "Emre",
-    soyad: "Yıldız",
-    telefon: "+90 545 999 8877",
-    kaynak: "Tavsiye",
-    notlar: "Arkadaşı danışanımız. Kas yapmak istiyor.",
-    durum: "ilgileniyor",
-    olusturma_tarihi: "2026-05-03",
-    son_temas: "2026-05-10",
-    followup_sayisi: 1,
-  },
-  {
-    id: "l3",
-    ad: "Nazlı",
-    soyad: "Güneş",
-    telefon: "+90 501 444 5566",
-    kaynak: "WhatsApp",
-    notlar: "Fiyat sordu sonra cevap vermedi.",
-    durum: "cevap_yok",
-    olusturma_tarihi: "2026-04-28",
-    son_temas: "2026-05-02",
-    followup_sayisi: 3,
-  },
-]
+const BASLANGIC_LEADLER: Lead[] = []
+
+const LS_KEY = "crm_leadler"
+
+function leadsYukle(): Lead[] {
+  if (typeof window === "undefined") return []
+  try {
+    const raw = localStorage.getItem(LS_KEY)
+    return raw ? (JSON.parse(raw) as Lead[]) : []
+  } catch {
+    return []
+  }
+}
+
+function leadsSakla(leadler: Lead[]) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(leadler))
+  } catch {}
+}
 
 const BOŞ_LEAD: Omit<Lead, "id" | "olusturma_tarihi" | "followup_sayisi"> = {
   ad: "",
@@ -133,6 +112,16 @@ export default function PotansiyelMusterilerPage() {
   const danisanlar = useDanisanlar()
   const router = useRouter()
   const [leadler, setLeadler] = useState<Lead[]>(BASLANGIC_LEADLER)
+
+  // localStorage'dan yükle
+  useEffect(() => {
+    setLeadler(leadsYukle())
+  }, [])
+
+  // Her değişiklikte localStorage'a kaydet
+  useEffect(() => {
+    leadsSakla(leadler)
+  }, [leadler])
   const [search, setSearch] = useState("")
   const [durumFilter, setDurumFilter] = useState<LeadDurumu | "tumu">("tumu")
   const [addOpen, setAddOpen] = useState(false)
