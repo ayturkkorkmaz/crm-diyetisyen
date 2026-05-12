@@ -57,7 +57,7 @@ export default function SignupPage() {
       setError(
         error.message === "User already registered"
           ? "Bu e-posta adresi zaten kayıtlı."
-          : "Kayıt sırasında bir hata oluştu."
+          : error.message || "Kayıt sırasında bir hata oluştu."
       )
       setLoading(false)
       return

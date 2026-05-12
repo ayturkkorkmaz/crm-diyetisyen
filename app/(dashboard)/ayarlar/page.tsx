@@ -8,24 +8,21 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog"
 import {
-  User, Lock, Bell, Stethoscope, Check, Upload, MessageCircle,
+  Lock, Bell, Stethoscope, Check, MessageCircle,
   Smartphone, Wifi, WifiOff, Loader2, Send, Calendar,
   CreditCard, Droplets, Pencil, AlertCircle, CheckCircle2,
   Clock, ShieldAlert,
 } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
 
-const PROFIL_KEY = "ayarlar_profil"
 const KLINIK_KEY = "ayarlar_klinik"
 
-type ProfilData = { ad: string; soyad: string; email: string; telefon: string; diplomaNo: string; uzmanlik: string }
 type KlinikData = { ad: string; telefon: string; email: string; adres: string; ilkGorusme: string; takipSeans: string; olcumSeans: string; seansSuresi: string }
 
-const PROFIL_VARSAYILAN: ProfilData = { ad: "", soyad: "", email: "", telefon: "", diplomaNo: "", uzmanlik: "" }
 const KLINIK_VARSAYILAN: KlinikData = { ad: "", telefon: "", email: "", adres: "", ilkGorusme: "500", takipSeans: "350", olcumSeans: "300", seansSuresi: "60" }
 
 function KaydetButonu({ onClick }: { onClick: () => void }) {
@@ -336,78 +333,45 @@ function WhatsAppAyarlari() {
 }
 
 export default function AyarlarPage() {
-  const [profil, setProfil] = useState<ProfilData>(PROFIL_VARSAYILAN)
   const [klinik, setKlinik] = useState<KlinikData>(KLINIK_VARSAYILAN)
   const [sifreMesaji, setSifreMesaji] = useState("")
-  const [mevcutSifre, setMevcutSifre] = useState("")
-  const [yeniSifre, setYeniSifre] = useState("")
-  const [yeniSifreTekrar, setYeniSifreTekrar] = useState("")
+  const [sifre, setSifre] = useState({ yeni: "", tekrar: "" })
+  const [sifreYukleniyor, setSifreYukleniyor] = useState(false)
 
   useEffect(() => {
     try {
-      const p = localStorage.getItem(PROFIL_KEY)
-      if (p) setProfil({ ...PROFIL_VARSAYILAN, ...JSON.parse(p) })
       const k = localStorage.getItem(KLINIK_KEY)
       if (k) setKlinik({ ...KLINIK_VARSAYILAN, ...JSON.parse(k) })
     } catch {}
   }, [])
 
-  function profilKaydet() { localStorage.setItem(PROFIL_KEY, JSON.stringify(profil)) }
   function klinikKaydet() { localStorage.setItem(KLINIK_KEY, JSON.stringify(klinik)) }
 
-  function sifreDegistir() {
-    if (!mevcutSifre || !yeniSifre || !yeniSifreTekrar) { setSifreMesaji("Lütfen tüm alanları doldurun."); setTimeout(() => setSifreMesaji(""), 3000); return }
-    if (yeniSifre !== yeniSifreTekrar) { setSifreMesaji("Yeni şifreler eşleşmiyor."); setTimeout(() => setSifreMesaji(""), 3000); return }
+  async function sifreDegistir() {
+    if (!sifre.yeni || !sifre.tekrar) { setSifreMesaji("Lütfen tüm alanları doldurun."); setTimeout(() => setSifreMesaji(""), 3000); return }
+    if (sifre.yeni !== sifre.tekrar) { setSifreMesaji("Şifreler eşleşmiyor."); setTimeout(() => setSifreMesaji(""), 3000); return }
+    if (sifre.yeni.length < 6) { setSifreMesaji("Şifre en az 6 karakter olmalıdır."); setTimeout(() => setSifreMesaji(""), 3000); return }
+    setSifreYukleniyor(true)
+    const supabase = createClient()
+    const { error } = await supabase.auth.updateUser({ password: sifre.yeni })
+    setSifreYukleniyor(false)
+    if (error) { setSifreMesaji("Hata: " + error.message); setTimeout(() => setSifreMesaji(""), 4000); return }
     setSifreMesaji("Şifre başarıyla güncellendi.")
-    setMevcutSifre(""); setYeniSifre(""); setYeniSifreTekrar("")
+    setSifre({ yeni: "", tekrar: "" })
     setTimeout(() => setSifreMesaji(""), 3000)
   }
 
-  const initials = [profil.ad, profil.soyad].filter(Boolean).map(s => s[0].toUpperCase()).join("") || "Dyt"
-
   return (
     <>
-      <Header title="Ayarlar" description="Hesap, klinik ve bildirim ayarları" />
+      <Header title="Ayarlar" description="Klinik, güvenlik ve bildirim ayarları" />
       <div className="p-6 max-w-2xl">
-        <Tabs defaultValue="profil">
+        <Tabs defaultValue="klinik">
           <TabsList className="mb-6 flex-wrap h-auto gap-1">
-            <TabsTrigger value="profil" className="gap-1.5"><User className="h-3.5 w-3.5" />Profil</TabsTrigger>
             <TabsTrigger value="klinik" className="gap-1.5"><Stethoscope className="h-3.5 w-3.5" />Klinik</TabsTrigger>
             <TabsTrigger value="guvenlik" className="gap-1.5"><Lock className="h-3.5 w-3.5" />Güvenlik</TabsTrigger>
             <TabsTrigger value="bildirimler" className="gap-1.5"><Bell className="h-3.5 w-3.5" />Bildirimler</TabsTrigger>
             <TabsTrigger value="whatsapp" className="gap-1.5"><MessageCircle className="h-3.5 w-3.5" />WhatsApp</TabsTrigger>
           </TabsList>
-
-          {/* PROFİL */}
-          <TabsContent value="profil">
-            <Card>
-              <CardHeader>
-                <CardTitle>Diyetisyen Profili</CardTitle>
-                <CardDescription>Danışanlarınıza görünecek bilgiler</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                <div className="flex items-center gap-4">
-                  <Avatar className="h-16 w-16">
-                    <AvatarFallback className="text-xl bg-primary/10 text-primary font-bold">{initials}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <Button variant="outline" size="sm" className="gap-1.5"><Upload className="h-3.5 w-3.5" />Fotoğraf Yükle</Button>
-                    <p className="text-xs text-muted-foreground mt-1">PNG veya JPG, max 2MB</p>
-                  </div>
-                </div>
-                <Separator />
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5"><Label>Ad</Label><Input value={profil.ad} onChange={e => setProfil({ ...profil, ad: e.target.value })} placeholder="Adınız" /></div>
-                  <div className="space-y-1.5"><Label>Soyad</Label><Input value={profil.soyad} onChange={e => setProfil({ ...profil, soyad: e.target.value })} placeholder="Soyadınız" /></div>
-                  <div className="col-span-2 space-y-1.5"><Label>E-posta</Label><Input type="email" value={profil.email} onChange={e => setProfil({ ...profil, email: e.target.value })} placeholder="ornek@email.com" /></div>
-                  <div className="space-y-1.5"><Label>Telefon</Label><Input value={profil.telefon} onChange={e => setProfil({ ...profil, telefon: e.target.value })} placeholder="+90 5xx xxx xx xx" /></div>
-                  <div className="space-y-1.5"><Label>Diploma No</Label><Input value={profil.diplomaNo} onChange={e => setProfil({ ...profil, diplomaNo: e.target.value })} placeholder="Diploma numarası" /></div>
-                  <div className="col-span-2 space-y-1.5"><Label>Uzmanlık Alanları</Label><Input value={profil.uzmanlik} onChange={e => setProfil({ ...profil, uzmanlik: e.target.value })} placeholder="Obezite, Diyabet..." /></div>
-                </div>
-                <div className="flex justify-end"><KaydetButonu onClick={profilKaydet} /></div>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
           {/* KLİNİK */}
           <TabsContent value="klinik">
@@ -441,15 +405,18 @@ export default function AyarlarPage() {
             <Card>
               <CardHeader><CardTitle>Şifre Değiştir</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-1.5"><Label>Mevcut Şifre</Label><Input type="password" placeholder="••••••••" value={mevcutSifre} onChange={e => setMevcutSifre(e.target.value)} /></div>
-                <div className="space-y-1.5"><Label>Yeni Şifre</Label><Input type="password" placeholder="••••••••" value={yeniSifre} onChange={e => setYeniSifre(e.target.value)} /></div>
-                <div className="space-y-1.5"><Label>Yeni Şifre (Tekrar)</Label><Input type="password" placeholder="••••••••" value={yeniSifreTekrar} onChange={e => setYeniSifreTekrar(e.target.value)} /></div>
+                <div className="space-y-1.5"><Label>Yeni Şifre</Label><Input type="password" placeholder="En az 6 karakter" value={sifre.yeni} onChange={e => setSifre(p => ({ ...p, yeni: e.target.value }))} /></div>
+                <div className="space-y-1.5"><Label>Yeni Şifre (Tekrar)</Label><Input type="password" placeholder="••••••••" value={sifre.tekrar} onChange={e => setSifre(p => ({ ...p, tekrar: e.target.value }))} /></div>
                 {sifreMesaji && (
                   <div className={`rounded-lg px-3 py-2 flex items-center gap-2 text-sm ${sifreMesaji.includes("başarıyla") ? "bg-emerald-50 border border-emerald-200 text-emerald-700" : "bg-destructive/10 border border-destructive/20 text-destructive"}`}>
                     <Check className="h-4 w-4" />{sifreMesaji}
                   </div>
                 )}
-                <div className="flex justify-end"><Button onClick={sifreDegistir}>Şifreyi Güncelle</Button></div>
+                <div className="flex justify-end">
+                  <Button onClick={sifreDegistir} disabled={sifreYukleniyor} className="gap-1.5">
+                    {sifreYukleniyor ? <><Loader2 className="h-4 w-4 animate-spin" />Güncelleniyor...</> : "Şifreyi Güncelle"}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
