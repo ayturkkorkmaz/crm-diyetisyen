@@ -1,0 +1,13 @@
+.git
+.gitignore
+.next
+node_modules
+.wa-auth
+.data
+*.log
+.env
+.env.local
+.env.*.local
+Dockerfile
+.dockerignore
+README.md
