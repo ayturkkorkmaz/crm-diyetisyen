@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Activity } from "lucide-react"
@@ -20,6 +20,14 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_AUTH_DISABLED === "true") {
+      router.replace("/")
+    }
+  }, [router])
+
+  if (process.env.NEXT_PUBLIC_AUTH_DISABLED === "true") return null
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault()

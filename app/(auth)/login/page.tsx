@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Activity } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
@@ -15,6 +15,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_AUTH_DISABLED === "true") {
+      router.replace("/")
+    }
+  }, [router])
+
+  if (process.env.NEXT_PUBLIC_AUTH_DISABLED === "true") return null
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
