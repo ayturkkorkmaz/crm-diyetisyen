@@ -10,7 +10,7 @@ import {
 import Link from "next/link"
 import type { EylemTuru } from "@/lib/loyalty-definitions"
 import { demoDanisanlar, demoDiyetPlanlari, demoOlcumler } from "@/lib/demo-data"
-import type { Danisan } from "@/lib/types"
+import type { Danisan, DiyetPlani, GunlukPlan } from "@/lib/types"
 import { formatTarih } from "@/lib/utils-crm"
 import { gonderimEkle, getGonderimler, yorumuOkunduIsaretle, type PortalGonderim } from "@/lib/portal-storage"
 import { Progress } from "@/components/ui/progress"
@@ -145,13 +145,14 @@ export default function PortalDashboardPage() {
   const suYuzdesi = Math.min(100, (suMiktari / suHedefi) * 100)
   const tumOlcumler = JSON.parse(localStorage.getItem("crm_olcumler") ?? JSON.stringify(demoOlcumler))
   const tumPlanlar = JSON.parse(localStorage.getItem("crm_diyet_planlari") ?? JSON.stringify(demoDiyetPlanlari))
-  const olcumler = tumOlcumler.filter((o: typeof demoOlcumler[0]) => o.danisan_id === danisan.id).sort((a: typeof demoOlcumler[0], b: typeof demoOlcumler[0]) => b.tarih.localeCompare(a.tarih))
+  type OlcumTip = typeof demoOlcumler[0]
+  const olcumler: OlcumTip[] = tumOlcumler.filter((o: OlcumTip) => o.danisan_id === danisan.id).sort((a: OlcumTip, b: OlcumTip) => b.tarih.localeCompare(a.tarih))
   const sonOlcum = olcumler[0]
   const mevcutKilo = sonOlcum?.kilo_kg ?? danisan.baslangic_kilo ?? 0
   const toplam = danisan.baslangic_kilo && danisan.hedef_kilo ? Math.abs(danisan.baslangic_kilo - danisan.hedef_kilo) : 0
   const gidilen = danisan.baslangic_kilo ? Math.abs(danisan.baslangic_kilo - mevcutKilo) : 0
   const ilerleme = toplam > 0 ? Math.min(100, Math.round((gidilen / toplam) * 100)) : 0
-  const aktivPlan = tumPlanlar.find((p: typeof demoDiyetPlanlari[0]) => p.danisan_id === danisan.id && p.aktif)
+  const aktivPlan = (tumPlanlar as DiyetPlani[]).find((p) => p.danisan_id === danisan.id && p.aktif)
   const motivasyon = motivasyonMesajlari[new Date().getDay() % motivasyonMesajlari.length]
 
   return (
@@ -411,7 +412,7 @@ export default function PortalDashboardPage() {
                   )}
                 </div>
 
-                {aktivPlan.haftalik_plan.map(gun => (
+                {aktivPlan.haftalik_plan.map((gun: GunlukPlan) => (
                   <GunlukPlanKart key={gun.gun} gun={gun} />
                 ))}
               </>
